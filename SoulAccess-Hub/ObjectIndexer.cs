@@ -7,16 +7,19 @@ using System.Threading.Tasks;
 
 namespace SoulAccess.Hub {
     public class ObjectIndexerConfig {
-        public string StorageDirPath = "~/storage";
+        public string StorageDirPath =
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "soulaccess/storage");
     }
 
     public class ObjectIndex {
         // Name of the file. Also the identifier of the file.
-        public string Name;
+        public string Name { get; set; }
         // The time when the latest modificaiton was done.
-        public DateTime LastModifiedUtc;
+        public DateTime LastModifiedUtc { get; set; }
         // The physical size of the file.
-        public long FileSize;
+        public long FileSize { get; set; }
 
         public ObjectIndex(FileInfo fi) {
             Name = fi.Name;
@@ -44,6 +47,7 @@ namespace SoulAccess.Hub {
             if (!Directory.Exists(_Cfg.StorageDirPath)) {
                 Directory.CreateDirectory(_Cfg.StorageDirPath);
             }
+            IndexAll();
         }
 
         // Get the index of a file identified by `name`.
@@ -59,7 +63,7 @@ namespace SoulAccess.Hub {
                 IEnumerable<ObjectIndex> idxs;
                 try {
                     idxs = from x in Directory.EnumerateFiles(_Cfg.StorageDirPath)
-                           select new ObjectIndex(new FileInfo(_Cfg.StorageDirPath + x));
+                           select new ObjectIndex(new FileInfo(Path.Combine(_Cfg.StorageDirPath, x)));
                 } catch (Exception) {
                     return false;
                 }
@@ -119,7 +123,7 @@ namespace SoulAccess.Hub {
         public bool OpenRead(string name, out FileStream fs) {
             var path = Path.Combine(_Cfg.StorageDirPath, name);
             lock (_SyncRoot) {
-                if (File.Exists(path)) { goto fail; }
+                if (!File.Exists(path)) { goto fail; }
                 try {
                     fs = new FileStream(path, FileMode.Open, FileAccess.Read,
                         FileShare.Read, 4096, useAsync: true);

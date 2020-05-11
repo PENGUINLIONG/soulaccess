@@ -21,7 +21,7 @@ namespace SoulAccess.Hub {
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services) {
-            services.AddSingleton(typeof(ObjectIndexer));
+            services.AddSingleton((x) => new ObjectIndexer());
             services.AddControllers();
         }
 
@@ -40,6 +40,8 @@ namespace SoulAccess.Hub {
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllers();
             });
+
+            app.UseStaticFiles();
         }
     }
 }

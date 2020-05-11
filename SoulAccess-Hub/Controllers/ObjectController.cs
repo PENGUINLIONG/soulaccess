@@ -37,7 +37,7 @@ namespace SoulAccess.Hub.Controllers {
         }
 
         // GET: api/v1/object/5.zip
-        [HttpGet("{id}", Name = "Get")]
+        [HttpGet("{name}", Name = "Get")]
         public async Task<ActionResult> Get(string name) {
             try {
                 if (!_Idxr.OpenRead(name, out var fs)) {
@@ -51,14 +51,15 @@ namespace SoulAccess.Hub.Controllers {
             }
         }
 
-        // PUT: api/v1/object/5.zip
-        [HttpPut("{id}")]
-        public async Task<ActionResult> Put(string name) {
+        // POST: api/v1/object/5.zip
+        [HttpPost("{name}")]
+        public async Task<ActionResult> Post(string name) {
             try {
                 if (!_Idxr.OpenWrite(name, out var fs)) {
                     return BadRequest("object already exists");
                 }
                 using (fs) { await Request.BodyReader.CopyToAsync(fs); }
+                _Idxr.Add(name);
                 return Ok();
             } catch (Exception) {
                 return BadRequest("transmission failed");
@@ -66,7 +67,7 @@ namespace SoulAccess.Hub.Controllers {
         }
 
         // DELETE: api/v1/object/5.zip
-        [HttpDelete("{id}")]
+        [HttpDelete("{name}")]
         public bool Delete(string name) {
             return _Idxr.Remove(name);
         }
