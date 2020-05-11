@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29409.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoulAccess-Hub", "SoulAccess-Hub\SoulAccess-Hub.csproj", "{69CC6BBC-C5E3-467A-8785-6FC9FE0EC042}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SoulAccess-Fetch", "SoulAccess-Fetch\SoulAccess-Fetch.csproj", "{9F90056E-E61C-4DAE-AE59-BF4BC8ED25FF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{69CC6BBC-C5E3-467A-8785-6FC9FE0EC042}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69CC6BBC-C5E3-467A-8785-6FC9FE0EC042}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69CC6BBC-C5E3-467A-8785-6FC9FE0EC042}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69CC6BBC-C5E3-467A-8785-6FC9FE0EC042}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F90056E-E61C-4DAE-AE59-BF4BC8ED25FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F90056E-E61C-4DAE-AE59-BF4BC8ED25FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F90056E-E61C-4DAE-AE59-BF4BC8ED25FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F90056E-E61C-4DAE-AE59-BF4BC8ED25FF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4A606AC9-6143-4DF2-95B0-1C8946079DC9}
+	EndGlobalSection
+EndGlobal
