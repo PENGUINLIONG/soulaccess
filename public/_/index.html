@@ -5,18 +5,176 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta http-equiv="X-UA-Compatible" content="ie=edge" />
 <title>SoulAccess Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@100;400;500;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@1,900&display=swap" rel="stylesheet"> 
 <style>
 * {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Noto Sans SC', Arial, Helvetica, sans-serif;
 }
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+#upload-ui {
+  display: flex;
+  flex-direction: row;
+  height: 4em;
+  border-bottom: 1px solid #DDD;
+}
+h1 {
+  display: table-cell;
+  margin: 0;
+  padding: 0;
+  font-size: 2em;
+  font-weight: 900;
+  font-family: 'Roboto', 'Noto Sans SC', Arial, Helvetica, sans-serif;
+  font-style: italic;
+  vertical-align: middle;
+  color: rgb(230, 88, 121);
+}
+.btn-cont {
+  display: table-cell;
+  vertical-align: middle;
+}
+#filesel {
+  vertical-align: middle;
+  font-size: 1em;
+  height: 2.5em;
+  width: 100%;
+  min-width: 10em;
+  border: 0;
+}
+#filesel-appr {
+  position: absolute;
+  display: table;
+  top: 0;
+  font-size: 1em;
+  pointer-events: none;
+  background-color: #FFF;
+  width: 100%;
+  min-width: 10em;
+  height: 2.5em;
+  border: 1px solid rgb(230, 88, 121);
+  border-radius: 5px;
+}
+#upload-btn {
+  font-size: 1em;
+  height: 2.5em;
+  width: 5em;
+  color: #FFF;
+  background-color: rgb(230, 88, 121);
+  border: 1px solid rgb(230, 88, 121);
+  border-radius: 2px;
+  padding-top: 2px;
+  cursor: pointer;
+}
+
+a {
+  color:rgb(87, 106, 176);
+  text-decoration: none;
+}
+a:active {
+  color:rgb(87, 106, 176);
+  text-decoration: none;
+}
+
+div {
+  margin: 0;
+  padding: 0;
+}
+table {
+  border: none;
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+th {
+  font-weight: 500;
+}
+.table-row {
+  padding: 0 0.5em;
+  width: 100%;
+  border-radius: 5px;
+}
+tr {
+  height: 3em;
+}
+tr:hover {
+  background-color: rgb(255, 248, 245);
+}
+td {
+  text-align: right;
+}
+td:first-child {
+  padding-left: 1em;
+  text-align: left;
+}
+
+
+
+.del-btn {
+  background-color: inherit;
+  color: rgb(230, 88, 121);
+  border: none;
+  width: 4em;
+  height: 4em;
+  padding: 0px;
+  display: block;
+  text-align: center;
+  cursor: pointer;
+}
+.del-cont {
+  padding-left: 1em;
+  width: 4em;
+  height: 2em;
+}
+
+
+.sidebar-cont {
+  pointer-events: none;
+  position: absolute;
+  float: right;
+  height: 100%;
+  right: 0;
+  top: 0;
+}
+.sidebar {
+  position: relative;
+  text-align: left;
+  width: 20em;
+  max-width: 100%;
+  padding-right: 0.5em;
+  height: 100%;
+  flex-direction: column-reverse;
+  display: flex;
+}
+
+logline {
+  margin: 0;
+  padding: 0;
+  font-size: 10px;
+  color: #666;
+  text-align: right;
+  display: block;
+  width: 100%;
+}
+
+
 </style>
 <script>
 const MAX_SEG_LEN = 8 * 1024 * 1024;
 
-var FILESEL = null, UPLOAD = null, FILE_IDX = null, LOG = null;
+var FILESEL = null, FILE_IDX = null, LOG = null, FILE_DETAIL;
 function log(x) {
   if (LOG) {
-    LOG.innerHTML += `<p>${x}</p>`;
+    let line = document.createElement("logline");
+    line.innerHTML = x;
+    if (LOG.children.length > 12) {
+      LOG.removeChild(LOG.firstChild);
+    }
+    LOG.appendChild(line);
   }
 }
 
@@ -49,50 +207,90 @@ class Submission {
       this.offset += len;
       if (this.offset < this.buf.byteLength) {
         let percentage = Math.round(this.offset * 100 / this.buf.byteLength) / 100;
-        log(`upload progress ${this.fileName}: ${percentage}`);
+        log(`upload progress ${this.fileName}: ${percentage}%`);
         this.update();
       } else {
         log(`uploaded ${this.fileName}`);
       }
+      refresh();
     };
     xhr.send(this.buf.slice(this.offset, this.offset + len));
   }
+}
+function displaySel() {
+  let files = FILESEL.files;
+  if (files.length == 0) {
+    clearSel();
+    return;
+  }
+  let size = 0;
+  for (let i = 0; i < files.length; ++i) {
+    size += files[i].size;
+  }
+  if (files.length == 1) {
+    FILE_DETAIL.innerText = `${files[0].name} (${prettyFileSize(size)})`;
+  } else {
+    FILE_DETAIL.innerText = `${files[0].name}等${files.length}个 (共${prettyFileSize(size)})`;
+  }
+}
+function clearSel() {
+  FILESEL.files.value = "";
+  FILE_DETAIL.innerText = "选择文件，，，";
 }
 function submit() {
   let files = FILESEL.files;
   for (let i = 0; i < files.length; ++i) {
     new Submission(files[i]);
   }
+  clearSel();
+}
+function remove(name) {
+  let xhr = new XMLHttpRequest();
+  xhr.open("DELETE", `/api/v1/object/${name}`);
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState != xhr.DONE) { return; }
+    if (xhr.status == 200) {
+      log(`removed ${name}`);
+      refresh();
+    } else {
+      log(`failed to remove ${name}`);
+    }
+  };
+  xhr.send();
 }
 
 function prettyFileSize(size) {
+  let f = (n) => Math.round(size * 100 / n) / 100
   if (size > 1073741824) {
-    return Math.round(size * 100 / 1073741824) / 100 + "KB";
+    return f(1073741824) + "GB";
   } else if (size > 1048576) {
-    return Math.round(size * 100 / 1048576) / 100 + "KB";
+    return f(1048576) + "MB";
   } else if (size > 1024) {
-    return Math.round(size * 100 / 1024) / 100 + "KB";
+    return f(1024) + "KB";
   } else {
     return size + "Byte";
   }
 }
 function refresh(page) {
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', "/api/v1/object/");
+  xhr.open('GET', "/api/v1/object");
   xhr.onreadystatechange = () => {
     if (xhr.readyState == xhr.DONE && xhr.status == 200) {
       log("refreshed");
       let records = JSON.parse(xhr.responseText);
-      let innerHTML = "";
+      FILE_IDX.innerHTML = "";
       for (let i in records) {
         let record = records[i];
         let date = record.lastModifiedUtc.substr(0, 10);
         let time = record.lastModifiedUtc.substr(11, 8);
-        innerHTML += `<tr><td><a href="./${record}">${record.name}</a></td>` +
-        `<td>${prettyFileSize(record.fileSize)}</td>` +
-        `<td>${date} ${time}</td></tr>`;
+        let elem = document.createElement("tr");
+        elem.innerHTML =
+          `<tr class="table-row"><td><a href="/api/v1/object/${record.name}">${record.name}</a></td>` +
+          `<td>${prettyFileSize(record.fileSize)}</td>` +
+          `<td>${date} ${time}</td>` +
+          `<td class="del-cont"><input class="del-btn" type="button" value="×" onclick="remove('${record.name}')"></td></tr>`;
+        FILE_IDX.appendChild(elem);
       }
-      FILE_IDX.innerHTML = innerHTML;
     }
   };
   xhr.send();
@@ -102,23 +300,66 @@ function refresh(page) {
 <body>
 <div id="content">
   <div id="upload-ui">
-    <input type="file" id="filesel">
-    <input type="button" id="upload" value="Upload" onclick="submit()">
+    <div style="margin: 0 0.5em; height: 100%; display: table;">
+      <h1>
+        <a style="display: block; user-select: none; color: rgb(230, 88, 121);" href="">
+            SoulAccess
+        </a>
+      </h1>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="flex-grow: 0.5;">
+      <div style="height: 100%; display: table; width: 100%">
+        <div style="display: table-cell; vertical-align: middle;">
+          <div style="position: relative; padding-bottom: 2px;">
+            <div class="btn-cont">
+              <input type="file" id="filesel" onchange="displaySel()">
+            </div>
+            <div id="filesel-appr">
+              <div style="display: table-cell; vertical-align: middle;">
+                <p id="file-detail" style="margin: 0 0.5em; overflow: hidden;"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin: 0 0.5em; height: 100%; display: table;">
+      <div class="btn-cont">
+        <div style="border: 1px solid rgb(230, 88, 121); border-radius: 5px;">
+          <input id="upload-btn" type="button" value="上传" onclick="submit()">
+        </div>
+      </div>
+    </div>
   </div>
-  <div id="download-ui">
-    <input type="button" value="Refresh" onclick="refresh()">
-    <table id="file-idx">
+  <div id="file-index">
+    <table>
+      <colgroup>
+        <col style="width:auto">
+        <col style="width:8em">
+        <col style="width:12em">
+        <col style="width:5em">
+      </colgroup>
+      <tbody id="file-idx">
     </table>
   </div>
-  <div id="log">
+  <div class="sidebar-cont">
+    <div class="sidebar">
+      <div id="log">
+        <logline>With all the good will from @SoulAccess</logline>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 FILESEL = document.getElementById("filesel");
-UPLOAD = document.getElementById("uplaod");
 FILE_IDX = document.getElementById("file-idx");
 LOG = document.getElementById("log");
+FILE_DETAIL = document.getElementById("file-detail");
+
+clearSel();
+refresh();
 </script>
 
 </body>

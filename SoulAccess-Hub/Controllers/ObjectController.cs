@@ -36,7 +36,17 @@ namespace SoulAccess.Hub.Controllers {
             return ie.Take(MAX_NENTRY);
         }
 
-        // GET: api/v1/object/5.zip
+        // GET: api/v1/object/5.zip/meta
+        [HttpGet("{name}/meta")]
+        public ActionResult GetMeta(string name) {
+            if (_Idxr.TryGetIndex(name, out var idx)) {
+                return Ok(idx);
+            } else {
+                return NotFound("object not found");
+            }
+        }
+
+        // Get: api/v1/object/5.zip
         [HttpGet("{name}")]
         public async Task<ActionResult> Get(string name) {
             var e = await _Idxr.ReadAsync(name, Response.Body);
@@ -65,8 +75,12 @@ namespace SoulAccess.Hub.Controllers {
         // DELETE: api/v1/object/5.zip
         [HttpDelete("{name}")]
         public async Task<ActionResult> Delete(string name) {
-            await _Idxr.RemoveAsync(name);
-            return Ok();
+            var e = await _Idxr.RemoveAsync(name);
+            if (e == null) {
+                return Ok();
+            } else {
+                return BadRequest(e);
+            }
         }
     }
 }

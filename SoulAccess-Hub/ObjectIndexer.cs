@@ -120,17 +120,18 @@ namespace SoulAccess.Hub {
         // Remove a file from the index, the corresponding physical file will
         // also be removed from local storage. A file will not be removed if it
         // it's not indexed.
-        public async Task RemoveAsync(string name) {
+        public async Task<string> RemoveAsync(string name) {
             var path = Path.Combine(_Cfg.StorageDirPath, name);
-            await Task.Run(() => {
+            return await Task.Run(() => {
+                try {
+                    if (File.Exists(path)) { File.Delete(path); }
+                } catch (Exception) {
+                    return "object is not accessible";
+                }
                 lock (_SyncRoot) {
                     RemoveIndex(name);
                 }
-                try {
-                    if (File.Exists(name)) { File.Delete(path); }
-                } catch (Exception) {
-                    // Ignore deletion error.
-                }
+                return null;
             });
         }
         private void RemoveIndex(string name) {
