@@ -11,38 +11,57 @@
 }
 </style>
 <script>
+const MAX_SEG_LEN = 8 * 1024 * 1024;
+
 var FILESEL = null, UPLOAD = null, FILE_IDX = null, LOG = null;
 function log(x) {
   if (LOG) {
     LOG.innerHTML += `<p>${x}</p>`;
   }
 }
-function submit() {
-  let files = FILESEL.files;
-  let reader = new FileReader();
-  for (let i = 0; i < files.length; ++i) {
-    file = files[i];
-    log("scheduled " + file.name + " for upload");
+
+class Submission {
+  constructor(file) {
+    let reader = new FileReader();
+    this.offset = 0;
+    this.fileName = file.name;
+    log("scheduled " + this.fileName + " for upload");
     reader.onloadend = () => {
       if (reader.error) {
-        log(reader.error);
-      } else {
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', "/api/v1/object/" + file.name);
-        //xhr.overrideMimeType("application/octet-stream");
-        xhr.onreadystatechange = () => {
-          if (xhr.readyState == xhr.DONE) {
-            if (xhr.status == 200) {
-              log("uploaded " + file.name);
-            } else {
-              log("failed to upload " + file.name);
-            }
-          }
-        };
-        xhr.send(reader.result);
+        log(`failed to read from ${this.fileName} :` + reader.error);
+        return;
       }
-    }
+      this.buf = reader.result;
+      this.update();
+    };
     reader.readAsArrayBuffer(file);
+  }
+  update() {
+    let len = Math.min(this.buf.byteLength, MAX_SEG_LEN);
+    let xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/v1/object/${this.fileName}?from=${this.offset}`);
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState != xhr.DONE) { return; }
+      if (xhr.status != 200) {
+        log(`failed to upload ${this.fileName}`);
+        return;
+      }
+      this.offset += len;
+      if (this.offset < this.buf.byteLength) {
+        let percentage = Math.round(this.offset * 100 / this.buf.byteLength) / 100;
+        log(`upload progress ${this.fileName}: ${percentage}`);
+        this.update();
+      } else {
+        log(`uploaded ${this.fileName}`);
+      }
+    };
+    xhr.send(this.buf.slice(this.offset, this.offset + len));
+  }
+}
+function submit() {
+  let files = FILESEL.files;
+  for (let i = 0; i < files.length; ++i) {
+    new Submission(files[i]);
   }
 }
 

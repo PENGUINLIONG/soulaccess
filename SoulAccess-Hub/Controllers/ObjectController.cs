@@ -37,47 +37,36 @@ namespace SoulAccess.Hub.Controllers {
         }
 
         // GET: api/v1/object/5.zip
-        [HttpGet("{name}", Name = "Get")]
+        [HttpGet("{name}")]
         public async Task<ActionResult> Get(string name) {
-            try {
-                if (!_Idxr.OpenRead(name, out var fs)) {
-                    return BadRequest("object doesn't exists");
-                }
+            var e = await _Idxr.ReadAsync(name, Response.Body);
+            if (e == null) {
                 Response.ContentType = "application/octet-stream";
-                using (fs) { await fs.CopyToAsync(Response.Body); }
                 return Ok();
-            } catch (Exception) {
-                return BadRequest("transmission failed");
+            } else {
+                return BadRequest(e);
             }
         }
 
         // POST: api/v1/object/5.zip
         [HttpPost("{name}")]
-        public async Task<ActionResult> Post(string name) {
-            try {
-                if (!_Idxr.OpenWrite(name, out var fs)) {
-                    return BadRequest("object already exists");
-                }
-                Task task;
-                using (fs) {
-                    task = Request.BodyReader.CopyToAsync(fs);
-                }
-                return await task.ContinueWith((t) => {
-                    if (_Idxr.Add(name)) {
-                        return Ok() as ActionResult;
-                    } else {
-                        return BadRequest("unable to index object");
-                    }
-                });
-            } catch (Exception) {
-                return BadRequest("transmission failed");
+        public async Task<ActionResult> Post(string name, long from) {
+            var e = await _Idxr.WriteAsync(name, from, Request.Body);
+            if (e == null) {
+                e = await _Idxr.UpdateIndexAsync(name);
+            }
+            if (e == null && _Idxr.TryGetIndex(name, out var idx)) {
+                return Ok(idx);
+            } else {
+                return BadRequest(e);
             }
         }
 
         // DELETE: api/v1/object/5.zip
         [HttpDelete("{name}")]
-        public bool Delete(string name) {
-            return _Idxr.Remove(name);
+        public async Task<ActionResult> Delete(string name) {
+            await _Idxr.RemoveAsync(name);
+            return Ok();
         }
     }
 }

@@ -22,6 +22,10 @@ namespace SoulAccess.Hub {
         public long FileSize { get; set; }
 
         public ObjectIndex(FileInfo fi) {
+            Update(fi);
+        }
+
+        public void Update(FileInfo fi) {
             Name = fi.Name;
             LastModifiedUtc = fi.LastWriteTimeUtc;
             FileSize = fi.Length;
@@ -49,16 +53,9 @@ namespace SoulAccess.Hub {
             }
             IndexAll();
         }
-
-        // Get the index of a file identified by `name`.
-        //
-        // Returns false if the file hasn't been indexed.
-        public bool TryGetIndex(string name, out ObjectIndex idx) {
-            return _NameMap.TryGetValue(name, out idx);
-        }
         // Index all local files in the storage directory. The indexed data will
         // be kept if the call failed.
-        public bool IndexAll() {
+        private bool IndexAll() {
             lock (_SyncRoot) {
                 IEnumerable<ObjectIndex> idxs;
                 try {
@@ -74,84 +71,133 @@ namespace SoulAccess.Hub {
                 return true;
             }
         }
-        // Attempt to add a file identified by `name` to the object. The file
-        // MUST exists in the file system before being added.
+
+        // Get the index of a file identified by `name`.
         //
-        // Returns false if the file doesn't exists.
-        public bool Add(string name) {
+        // Returns false if the file hasn't been indexed.
+        public bool TryGetIndex(string name, out ObjectIndex idx) {
+            return _NameMap.TryGetValue(name, out idx);
+        }
+
+        // Attempt to add a file identified by `name` to the object and allocate
+        // space on local storage for that file.
+        //
+        public async Task<string> UpdateIndexAsync(string name) {
             var path = Path.Combine(_Cfg.StorageDirPath, name);
-            lock (_SyncRoot) {
-                if (!File.Exists(path)) { return false; }
+            return await Task.Run(() => {
                 FileInfo fi;
                 try {
                     fi = new FileInfo(path);
                 } catch (Exception) {
-                    return false;
+                    fi = null;
                 }
-                var idx = new ObjectIndex(fi);
-                var i = _Idxs.BinarySearch(idx, _LastModCmp);
-                _Idxs.Insert(i < 0 ? ~i : i, idx);
-                _NameMap.Add(name, idx);
-                return true;
-            }
+                var isAccessible = fi != null && fi.Exists;
+                lock (_SyncRoot) {
+                    if (!_NameMap.TryGetValue(name, out var idx)) {
+                        // The object hasn't been indexed yet.
+                        if (isAccessible) {
+                            idx = new ObjectIndex(fi);
+                            var i = _Idxs.BinarySearch(idx, _LastModCmp);
+                            _Idxs.Insert(i < 0 ? ~i : i, idx);
+                            _NameMap.Add(name, idx);
+                        }
+                    } else {
+                        // The object is already indexed.
+                        if (isAccessible) {
+                            idx.Update(fi);
+                        } else {
+                            // Remove existing index if the file is not
+                            // accessible.
+                            RemoveIndex(name);
+                            return "removed index of inaccessible object";
+                        }
+                    }
+                }
+                return null;
+            });
         }
+
         // Remove a file from the index, the corresponding physical file will
         // also be removed from local storage. A file will not be removed if it
         // it's not indexed.
-        //
-        // Return `false` if the file doesn't exists beforehand; otherwise,
-        // `true` is returned.
-        public bool Remove(string name) {
+        public async Task RemoveAsync(string name) {
             var path = Path.Combine(_Cfg.StorageDirPath, name);
-            lock (_SyncRoot) {
-                if (_NameMap.TryGetValue(name, out var idx)) {
-                    _NameMap.Remove(name);
-                    _Idxs.Remove(idx);
-                    try {
-                        if (File.Exists(name)) { File.Delete(path); }
-                    } catch (Exception) {
-                        // Ignore deletion error.
-                    }
-                    return true;
-                } else {
-                    return false;
+            await Task.Run(() => {
+                lock (_SyncRoot) {
+                    RemoveIndex(name);
                 }
+                try {
+                    if (File.Exists(name)) { File.Delete(path); }
+                } catch (Exception) {
+                    // Ignore deletion error.
+                }
+            });
+        }
+        private void RemoveIndex(string name) {
+            if (_NameMap.TryGetValue(name, out var idx)) {
+                _NameMap.Remove(name);
+                _Idxs.Remove(idx);
             }
         }
-        // Open a stream to an existing file.
-        //
-        // Returns false if the file doesn't exists.
-        public bool OpenRead(string name, out FileStream fs) {
-            var path = Path.Combine(_Cfg.StorageDirPath, name);
-            lock (_SyncRoot) {
-                if (!File.Exists(path)) { goto fail; }
-                try {
-                    fs = new FileStream(path, FileMode.Open, FileAccess.Read,
-                        FileShare.Read, 4096, useAsync: true);
-                    return true;
-                } catch (Exception) { goto fail; }
+
+        public async Task<string> ReadAsync(string name, Stream dst) {
+            if (TryOpenFile(name, true, out var src)) {
+                using (src) {
+                    await src.CopyToAsync(dst);
+                }
+                return null;
+            } else {
+                return "object is not accessible";
             }
-        fail:
-            fs = null;
-            return false;
         }
-        // Create a stream to a newly created file. The created file WILL NOT be
-        // automatically added to.
+        // Asynchronously read a file to the `dst` stream from local file
+        // identified by `name`, in range of [`from`, `to`).
         //
-        // Returns false if the file already exists.
-        public bool OpenWrite(string name, out FileStream fs) {
-            var path = Path.Combine(_Cfg.StorageDirPath, name);
-            lock (_SyncRoot) {
-                if (File.Exists(path)) { goto fail; }
-                try {
-                    fs = new FileStream(path, FileMode.Create, FileAccess.Write,
-                        FileShare.None, 4096, useAsync: true);
-                    return true;
-                } catch (Exception) { goto fail; }
+        // Returns `null` if the read succeeded; error message is returned
+        // otherwise.
+        public async Task<string> ReadAsync(string name, long from, long to, Stream dst) {
+            if (from < 0) { return "out of range"; }
+            if (TryOpenFile(name, true, out var src)) {
+                using (src) {
+                    if (to > src.Length) { return "out of range"; }
+                    src.Seek(from, SeekOrigin.Begin);
+                    await src.CopyToAsync(dst);
+                }
+                return null;
+            } else {
+                return "object is not accessible";
             }
-        fail:
-            fs = null;
-            return false;
+        }
+        // Asynchronously write the file identified by `name` with data in
+        // `dst`, in range of [`from`, `to`).
+        //
+        // Returns `null` if the write succeeded; error message is returned
+        // othersise.
+        public async Task<string> WriteAsync(string name, long from, Stream src) {
+            if (TryOpenFile(name, false, out var dst)) {
+                using (dst) {
+                    if (from > dst.Length) { return "out of range"; }
+                    dst.Seek(from, SeekOrigin.Begin);
+                    await src.CopyToAsync(dst);
+                }
+                return null;
+            } else {
+                return "object is not accessible";
+            }
+        }
+        private bool TryOpenFile(string name, bool isRead, out FileStream fs) {
+            var path = Path.Combine(_Cfg.StorageDirPath, name);
+            (var mode, var access, var share) = isRead ?
+                (FileMode.Open, FileAccess.Read, FileShare.Read) :
+                (FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+            try {
+                fs = new FileStream(path, mode, access, share, 4096,
+                    useAsync: true);
+                return true;
+            } catch (Exception) {
+                fs = null;
+                return false;
+            }
         }
 
         public IEnumerator<ObjectIndex> GetEnumerator() {
