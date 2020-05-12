@@ -81,7 +81,7 @@ namespace SoulAccess.Hub {
         public bool Add(string name) {
             var path = Path.Combine(_Cfg.StorageDirPath, name);
             lock (_SyncRoot) {
-                if (!File.Exists(name)) { return false; }
+                if (!File.Exists(path)) { return false; }
                 FileInfo fi;
                 try {
                     fi = new FileInfo(path);
@@ -89,7 +89,8 @@ namespace SoulAccess.Hub {
                     return false;
                 }
                 var idx = new ObjectIndex(fi);
-                _Idxs.BinarySearch(idx, _LastModCmp);
+                var i = _Idxs.BinarySearch(idx, _LastModCmp);
+                _Idxs.Insert(i < 0 ? ~i : i, idx);
                 _NameMap.Add(name, idx);
                 return true;
             }

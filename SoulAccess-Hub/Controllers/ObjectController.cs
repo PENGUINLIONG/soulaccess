@@ -58,9 +58,17 @@ namespace SoulAccess.Hub.Controllers {
                 if (!_Idxr.OpenWrite(name, out var fs)) {
                     return BadRequest("object already exists");
                 }
-                using (fs) { await Request.BodyReader.CopyToAsync(fs); }
-                _Idxr.Add(name);
-                return Ok();
+                Task task;
+                using (fs) {
+                    task = Request.BodyReader.CopyToAsync(fs);
+                }
+                return await task.ContinueWith((t) => {
+                    if (_Idxr.Add(name)) {
+                        return Ok() as ActionResult;
+                    } else {
+                        return BadRequest("unable to index object");
+                    }
+                });
             } catch (Exception) {
                 return BadRequest("transmission failed");
             }
