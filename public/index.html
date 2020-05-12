@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8"></meta>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta http-equiv="X-UA-Compatible" content="ie=edge" />
+<title>SoulAccess Hub</title>
+<style>
+* {
+  font-family: Arial, Helvetica, sans-serif;
+}
+</style>
+<script>
+var FILESEL = null, UPLOAD = null, FILE_IDX = null, LOG = null;
+function log(x) {
+  if (LOG) {
+    LOG.innerHTML += `<p>${x}</p>`;
+  }
+}
+function submit() {
+  let files = FILESEL.files;
+  let reader = new FileReader();
+  for (let i = 0; i < files.length; ++i) {
+    file = files[i];
+    log("scheduled " + file.name + " for upload");
+    reader.onloadend = () => {
+      if (reader.error) {
+        log(reader.error);
+      } else {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', "/api/v1/object/" + file.name);
+        //xhr.overrideMimeType("application/octet-stream");
+        xhr.onreadystatechange = () => {
+          if (xhr.readyState == xhr.DONE) {
+            if (xhr.status == 200) {
+              log("uploaded " + file.name);
+            } else {
+              log("failed to upload " + file.name);
+            }
+          }
+        };
+        xhr.send(reader.result);
+      }
+    }
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function prettyFileSize(size) {
+  if (size > 1073741824) {
+    return Math.round(size * 100 / 1073741824) / 100 + "KB";
+  } else if (size > 1048576) {
+    return Math.round(size * 100 / 1048576) / 100 + "KB";
+  } else if (size > 1024) {
+    return Math.round(size * 100 / 1024) / 100 + "KB";
+  } else {
+    return size + "Byte";
+  }
+}
+function refresh(page) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', "/api/v1/object/");
+  xhr.onreadystatechange = () => {
+    if (xhr.readyState == xhr.DONE && xhr.status == 200) {
+      log("refreshed");
+      let records = JSON.parse(xhr.responseText);
+      let innerHTML = "";
+      for (let i in records) {
+        let record = records[i];
+        let date = record.lastModifiedUtc.substr(0, 10);
+        let time = record.lastModifiedUtc.substr(11, 8);
+        innerHTML += `<tr><td><a href="./${record}">${record.name}</a></td>` +
+        `<td>${prettyFileSize(record.fileSize)}</td>` +
+        `<td>${date} ${time}</td></tr>`;
+      }
+      FILE_IDX.innerHTML = innerHTML;
+    }
+  };
+  xhr.send();
+}
+</script>
+</head>
+<body>
+<div id="content">
+  <div id="upload-ui">
+    <input type="file" id="filesel">
+    <input type="button" id="upload" value="Upload" onclick="submit()">
+  </div>
+  <div id="download-ui">
+    <input type="button" value="Refresh" onclick="refresh()">
+    <table id="file-idx">
+    </table>
+  </div>
+  <div id="log">
+  </div>
+</div>
+
+<script>
+FILESEL = document.getElementById("filesel");
+UPLOAD = document.getElementById("uplaod");
+FILE_IDX = document.getElementById("file-idx");
+LOG = document.getElementById("log");
+</script>
+
+</body>
+</html>
