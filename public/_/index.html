@@ -38,39 +38,47 @@ h1 {
   display: table-cell;
   vertical-align: middle;
 }
-#filesel {
-  vertical-align: middle;
-  font-size: 1em;
+.btn {
   height: 2.5em;
-  width: 100%;
-  min-width: 10em;
-  border: 0;
-}
-#filesel-appr {
-  position: absolute;
-  display: table;
-  top: 0;
-  font-size: 1em;
-  pointer-events: none;
-  background-color: #FFF;
-  width: 100%;
-  min-width: 10em;
-  height: 2.5em;
-  border: 1px solid rgb(230, 88, 121);
+  cursor: pointer;
   border-radius: 5px;
 }
+.btn-text-cont {
+  display: table;
+  height: 100%;
+  width: 100%;
+}
+.btn-text {
+  display: table-cell;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  vertical-align: middle;
+  margin: 0;
+  padding: 0;
+}
+#filesel {
+  display: none;
+}
+#filesel-btn {
+  background-color: rgb(255, 248, 245);
+  min-width: 6em;
+  border-bottom: 1px solid rgb(230, 88, 121);
+}
+#filesel-appr {
+  width: 100%;
+  min-width: 6em;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  color: rgb(230, 88, 121);
+  padding: 0 0.5em;
+}
 #upload-btn {
-  font-size: 1em;
-  height: 2.5em;
   width: 5em;
   color: #FFF;
   background-color: rgb(230, 88, 121);
-  border: 1px solid rgb(230, 88, 121);
-  border-radius: 2px;
-  padding-top: 2px;
-  cursor: pointer;
 }
-
 a {
   color:rgb(87, 106, 176);
   text-decoration: none;
@@ -104,14 +112,35 @@ tr {
 tr:hover {
   background-color: rgb(255, 248, 245);
 }
+@media only screen and (max-width: 512px) {
+  td {
+    display: none;
+  }
+  td:first-child {
+    display: table-cell;
+    text-align: left;
+    padding: 0 0.5em;
+  }
+  .mobhide {
+    width: 0 !important;
+  }
+  td .mobkeep {
+    padding-left: 1em;
+    width: 100%;
+    text-align: left;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+}
 td {
+  display: table-cell;
   text-align: right;
 }
 td:first-child {
-  padding-left: 1em;
   text-align: left;
+  padding: 0 0.5em;
 }
-
 
 
 .del-btn {
@@ -166,7 +195,7 @@ logline {
 <script>
 const MAX_SEG_LEN = 8 * 1024 * 1024;
 
-var FILESEL = null, FILE_IDX = null, LOG = null, FILE_DETAIL;
+var FILESEL = null, FILE_IDX = null, LOG = null, FILESEL_APPR = null;
 function log(x) {
   if (LOG) {
     let line = document.createElement("logline");
@@ -228,14 +257,14 @@ function displaySel() {
     size += files[i].size;
   }
   if (files.length == 1) {
-    FILE_DETAIL.innerText = `${files[0].name} (${prettyFileSize(size)})`;
+    FILESEL_APPR.innerHTML = `${files[0].name} (${prettyFileSize(size)})`;
   } else {
-    FILE_DETAIL.innerText = `${files[0].name}等${files.length}个 (共${prettyFileSize(size)})`;
+    FILESEL_APPR.innerHTML = `${files[0].name}等${files.length}个 (共${prettyFileSize(size)})`;
   }
 }
 function clearSel() {
   FILESEL.files.value = "";
-  FILE_DETAIL.innerText = "选择文件，，，";
+  FILESEL_APPR.innerHTML = "选择文件";
 }
 function submit() {
   let files = FILESEL.files;
@@ -285,10 +314,11 @@ function refresh(page) {
         let time = record.lastModifiedUtc.substr(11, 8);
         let elem = document.createElement("tr");
         elem.innerHTML =
-          `<tr class="table-row"><td><a href="/api/v1/object/${record.name}">${record.name}</a></td>` +
+          `<tr class="table-row">` + 
+          `<td class="mobkeep"><a href="/api/v1/object/${record.name}">${record.name}</a></td>` +
           `<td>${prettyFileSize(record.fileSize)}</td>` +
           `<td>${date} ${time}</td>` +
-          `<td class="del-cont"><input class="del-btn" type="button" value="×" onclick="remove('${record.name}')"></td></tr>`;
+          `<td class="mobkeep del-cont"><input class="del-btn" type="button" value="×" onclick="remove('${record.name}')"></td></tr>`;
         FILE_IDX.appendChild(elem);
       }
     }
@@ -308,26 +338,22 @@ function refresh(page) {
       </h1>
     </div>
     <div style="flex-grow: 1;"></div>
-    <div style="flex-grow: 0.5;">
-      <div style="height: 100%; display: table; width: 100%">
-        <div style="display: table-cell; vertical-align: middle;">
-          <div style="position: relative; padding-bottom: 2px;">
-            <div class="btn-cont">
-              <input type="file" id="filesel" onchange="displaySel()">
-            </div>
-            <div id="filesel-appr">
-              <div style="display: table-cell; vertical-align: middle;">
-                <p id="file-detail" style="margin: 0 0.5em; overflow: hidden;"></p>
-              </div>
-            </div>
+    <div style="margin: 0 0.5em; height: 100%; flex-grow: 0.5; display: table;">
+      <div class="btn-cont">
+        <input type="file" id="filesel" onchange="displaySel()">
+        <div class="btn" id="filesel-btn" onclick="FILESEL.click()">
+          <div class="btn-text-cont">
+            <p class="btn-text" id="filesel-appr"></p>
           </div>
         </div>
       </div>
     </div>
     <div style="margin: 0 0.5em; height: 100%; display: table;">
       <div class="btn-cont">
-        <div style="border: 1px solid rgb(230, 88, 121); border-radius: 5px;">
-          <input id="upload-btn" type="button" value="上传" onclick="submit()">
+        <div class="btn" id="upload-btn" onclick="submit()">
+          <div class="btn-text-cont">
+            <p class="btn-text">上传</p>
+          </div>
         </div>
       </div>
     </div>
@@ -336,9 +362,9 @@ function refresh(page) {
     <table>
       <colgroup>
         <col style="width:auto">
-        <col style="width:8em">
-        <col style="width:12em">
-        <col style="width:5em">
+        <col class="mobhide" style="width:7em">
+        <col class="mobhide" style="width:10em">
+        <col class="mobhide" style="width:5em">
       </colgroup>
       <tbody id="file-idx">
     </table>
@@ -356,7 +382,7 @@ function refresh(page) {
 FILESEL = document.getElementById("filesel");
 FILE_IDX = document.getElementById("file-idx");
 LOG = document.getElementById("log");
-FILE_DETAIL = document.getElementById("file-detail");
+FILESEL_APPR = document.getElementById("filesel-appr");
 
 clearSel();
 refresh();
